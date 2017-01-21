@@ -1,0 +1,22 @@
+#!/bin/bash
+
+SCRIPT=$(basename $0)
+if [[ $# -ne 0 ]]; then
+    echo "Usage: $SCRIPT"
+    exit 0
+fi
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    cp patches/series patches/series-trunk
+    rm -f patches/series
+    ln -s series-trunk patches/series
+fi
+
+for b in `ls patches/series-*`;
+do
+    echo "${b#patches/*}"
+done
+
+exit 0

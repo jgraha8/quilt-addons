@@ -1,0 +1,52 @@
+#!/bin/bash
+# This script mirrors the current series branch or the one specified
+
+SCRIPT=$(basename $0)
+
+function print_usage {
+    echo "Usage: $SCRIPT [-f] [mirror-series] <series>"
+    exit 1
+}
+
+[[ $# -eq 0 ]] && print_usage;
+
+force_mirror=0
+if [[ $1 == "-f" ]]; then
+    force_mirror=1
+    shift 1
+fi
+
+NARGS=$#
+case $NARGS in
+    1)
+	MIRROR_SERIES=$(quilt-current)
+	SERIES=$1
+	;;
+    2)
+	MIRROR_SERIES=$1
+	SERIES=$2
+	;;
+    *)
+	print_usage
+	;;
+esac
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    mv patches/series patches/series-trunk
+    ln -s series-trunk patches/series
+fi
+
+# Check that series branch does not already exist
+if [[ -f patches/$SERIES && $force_mirror -eq 0 ]]; then
+   echo "series branch already exists (use -f to force mirror)"
+   exit 1
+fi
+
+# Do the mirror; complicated huh
+cp patches/$MIRROR_SERIES patches/$SERIES &&
+
+echo "successfully mirrored $MIRROR_SERIES --> $SERIES"
+
+exit 0

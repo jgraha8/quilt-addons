@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# This script will package a specified series and its patches in to the
+# directory with the series name
+
+SCRIPT=$(basename $0)
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $SCRIPT <series>"
+    exit 1
+fi
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    mv patches/series patches/series-trunk
+    ln -s series-trunk patches/series
+fi
+
+SERIES="$1"
+
+# Check that specified series exists
+if [[ ! -f patches/${SERIES} ]]; then
+  echo "series does not exist"
+  exit 1
+fi
+
+# Make sure <series> directory does not already exist
+if [[ -d $SERIES ]]; then
+  echo "packaged series directory ${SERIES} already exists"
+  exit 1
+fi
+
+mkdir $SERIES
+if [[ $? -ne 0 ]]; then
+  echo "unable to create series direcotry ${SERIES}"
+  exit 1
+fi
+
+# Copy series file to series directory
+cp -p patches/${SERIES} ${SERIES}/
+
+while read p
+do
+
+    # Skip empty lines in series file
+    if [[ ! -z $p ]]; then
+
+	# Grab everything in the first column
+	p=$(echo $p | awk '{print $1}')
+	
+	if [[ ! -f patches/$p ]]; then
+	    echo "patch $p not found"
+	    exit 1
+	fi
+
+	cp -p patches/$p ${SERIES}/
+
+    fi
+
+done < "patches/${SERIES}"
+
+# Now tar up the series directory
+tar -zcf ${SERIES}.tar.gz ${SERIES} &&
+# Should be safe to delete series directory
+rm -rf ${SERIES}
+
+exit 0

@@ -1,0 +1,62 @@
+#!/bin/bash 
+
+# This script merges the two specified series. The first series is the base; the
+# patches from the second one that are not in the first one are applied on top
+
+SCRIPT=$(basename $0)
+
+function print_usage {
+    echo "Usage: $SCRIPT <series-a> <series-b>"
+    exit 1
+}
+
+function print_error_mesg {
+    echo "$1"
+    exit 1
+}
+
+NARGS=$#
+
+if [[ $NARGS -ne 2 ]]; then
+    print_usage
+else
+    series_a="patches/$1"
+    series_b="patches/$2"
+fi
+
+# Check if both series exist
+[[ ! -f ${series_a} || ! -f ${series_b} ]] && print_error_mesg "series does not exist"
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    mv patches/series patches/series-trunk
+    ln -s series-trunk patches/series
+fi
+
+# Create temporary series file
+cat "${series_a}" > .series
+[[ $? -ne 0 ]] && print_error_mesg "unable to create temporary file"
+
+while read p
+do
+    search=$(grep -w "$p" .series)
+    ifound=0
+    # Now loop over all found words
+    for w in "$search"
+    do
+	if [[ $p == $w ]]; then
+	    ifound=1
+	    break;
+	fi
+    done
+
+    [[ $ifound -eq 0 ]] && echo $p >> .series
+
+done <"${series_b}"
+
+# Now put the temporary series file as series_b
+mv .series "${series_b}"
+
+
+exit 0

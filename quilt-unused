@@ -1,0 +1,102 @@
+#!/bin/bash
+# This script prints all unused patches; the -d flag will delete all unused patches
+
+SCRIPT=$(basename $0)
+
+function print_usage {
+    echo "Usage: $SCRIPT [-d]"
+    exit 1
+}
+
+function find_unused_patches {
+# Loop over all non-series files
+    for p in `ls patches/*`
+    do
+	iseries=0
+	iused=0
+	p="$(echo ${p#patches/*})"
+
+        # Skip series file
+	if [[ $p != "series" ]]; then
+
+            # Brute force check if p is a series
+	    for l in "${lists[@]}"
+	    do
+		l="$(echo $l)"
+	        # Trim whitespace with echo
+		if [[ $p == $l ]]; then
+		    iseries=1
+		    break
+		fi
+	    done
+	else
+	    iseries=1
+	fi
+
+	if [[ $iseries -eq 0 ]]; then
+
+	    for l in "${lists[@]}"
+	    do
+		# Echo whitespace away
+		l="$(echo $l)"
+
+		search=$(grep -w "$p" patches/$l)
+		# Now loop over all found words
+		for w in $search
+		do
+		   if [[ $p == $w ]]; then
+		    iused=1
+		    break 2;
+		   fi
+		done
+	    done
+
+	    if [[ $iused -eq 0 ]]; then
+
+		if [[ $remove_unused -eq 0 ]]; then
+		    echo "$p"
+		else
+		    rm -f patches/$p && echo "removed patch $p"
+		fi
+
+	    fi
+	fi
+    done
+}
+
+
+NARGS=$#
+
+remove_unused=0
+if [[ $NARGS -eq 1 ]]; then
+    if [[ $1 == "-d" ]]; then
+	remove_unused=1;
+    else
+	print_usage
+    fi
+elif [[ $NARGS -gt 1 ]]; then
+    print_usage
+fi
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    mv patches/series patches/series-trunk
+    ln -s series-trunk patches/series
+fi
+
+# Load the series into an array
+[[ -f .lists ]] && rm -f .lists
+quilt-list > .lists
+while read list
+do
+  lists=( "${lists[@]}" "${list}" )
+done <.lists
+# mapfile not supported on all systems
+#mapfile lists < .lists
+rm -f .lists
+
+unused_patches="$(find_unused_patches)"
+[[ ! -z $unused_patches ]] && echo "$unused_patches"
+
+exit 0

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+SCRIPT=$(basename $0)
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $SCRIPT <series>"
+    exit 1
+fi
+
+# Check if series-trunk already exists
+# If not then we only have the default series
+if [[ ! -f patches/series-trunk ]]; then
+    mv patches/series patches/series-trunk
+    ln -s series-trunk patches/series
+fi
+
+SERIES=$1
+if [[ ! -f patches/$SERIES ]]; then
+   echo "series does not exist"
+   exit 1
+fi
+
+# Move to top of series (branch)
+quilt pop -a
+quilt_pop_mesg=$?
+
+if [[ $quilt_pop_mesg -ne 0 && $quilt_pop_mesg -ne 2 ]]; then
+    echo "Unable to pop patches"
+    exit 1
+fi
+rm -f patches/series
+ln -s $SERIES patches/series &&
+echo ""
+echo "Now on series $SERIES"
+
+exit 0

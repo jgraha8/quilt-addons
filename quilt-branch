@@ -1,0 +1,72 @@
+#!/bin/bash
+
+SCRIPT=$(basename $0)
+if [[ $# -ne 2 ]]; then
+    echo "Usage: $SCRIPT <branchpoint> <branchname>"
+    exit 0
+fi
+
+BRANCHPOINT="$1"
+BRANCH="$2"
+
+CURRENT_SERIES=$(quilt-current)
+SERIES=series-${BRANCH%%.*}
+
+# Check that branch point exists
+if [[ ! -f patches/$BRANCHPOINT ]]; then
+    echo "branch point does not exist"
+    exit 1
+fi
+
+# Check that the branch is in the series
+if [[ -z $(quilt series | grep $BRANCHPOINT) ]]; then
+    echo "branch point not in series"
+    exit 1
+fi
+
+# Check if branch already exists
+if [[ -f patches/$BRANCH || -f patches/$SERIES ]]; then
+    echo "branch already exists"
+    exit 1
+fi
+
+# Check if series-trunk already exists; if not create trunk series
+if [[ ! -f patches/series-trunk ]]; then
+    cp patches/series patches/series-trunk
+fi
+
+rm -f patches/series-${BRANCHNAME};
+
+# Pop all revisions; even on branches this moves to "initial import"
+quilt pop -a
+quilt_pop_mesg=$?
+
+if [[ $quilt_pop_mesg -ne 0 && $quilt_pop_mesg -ne 2 ]]; then
+    echo "Unable to pop patches"
+    exit 1
+fi
+
+quilt snapshot &&
+
+# Move back to current series
+quilt-switch $CURRENT_SERIES &&
+# Push up to branch point
+quilt push $BRANCHPOINT &&
+# Create patch from beginning of time to branch point
+quilt diff --snapshot > patches/${BRANCH} &&
+
+# Create new seriesp
+echo ${BRANCH} > patches/${SERIES} &&
+
+# Now switch to new branch
+quilt-switch ${SERIES}
+
+# quilt pop -a &&
+
+# # Remove link or original series
+# rm -f patches/series &&
+# ln -s ${SERIES} patches/series &&
+
+#quilt push -a
+
+exit 0
